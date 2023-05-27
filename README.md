@@ -59,11 +59,6 @@ function randΛ(α::Real,q::Real,r0::Real,r::Real)
 function rand_crossing_subordinator(α::Real,ϑ::Real,q::Real,a0::Real,a1::Real,r::Real,ρ::Real,r0::Real,Λ0::Real,randΛ0::Function)
 ```
 
-* The following function produces a choice of $r$ in the Levy meausre of the subordiantor to optimize our first passage event algorithm, based on Newton-Rapston method and the discuss in the Section 'Implementation':
-```julia
-function NR_best_r(α::Real,ϑ::Real,q::Real,r0::Real,Λ0::Real,C1::Real,C2::Real)
-```
-
 # Example: testing the marginals laws of the undershoot and overshoot
 
 ```julia
