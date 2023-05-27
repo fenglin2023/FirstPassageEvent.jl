@@ -4,10 +4,10 @@ using Plots, Random, SpecialFunctions, Distributions, LaTeXStrings
 
 Random.seed!(2023)
 
-rand_crossing_tempered_stable(.55, 1., 2, 1, 0, 1)
+rand_crossing_tempered_stable(.55, 1., 3, 4, 0, 2)
 
 α = 0.65
-θ = 1.
+ϑ = 1/(-gamma(-α))
 q = 1.
 r = 1
 
@@ -18,8 +18,8 @@ T, U = zeros(n), zeros(n)
 
 u = zeros(length(xarr),length(yarr))
 gmma = [1 1; 0 1]#gmma is the volatility of the SDE
-function myrandΛ(r)
-    return 0
+function myrandΛ()# Q has levy density 1{s>1}s^(-5)
+    return rand()^(-1/4)
 end
 for k in (1:1:n)
     if k%10 == 0
@@ -28,7 +28,7 @@ for k in (1:1:n)
     end
     t = 5# t is the  boundary 
     if U[k] < t
-        (auxT,auxU,auxV) = rand_crossing_subordinator(α, θ, q, t-U[k], 0, t-U[k],1/2,10,0,myrandΛ)#no compound poisson component
+        (auxT,auxU,auxV) = rand_crossing_subordinator(α, ϑ, q, t-U[k], 0, 1,1/2,1/4,myrandΛ) 
         T[k] += auxT
         U[k] += auxU + auxV
     end

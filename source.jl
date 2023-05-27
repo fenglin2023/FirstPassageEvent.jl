@@ -15,10 +15,6 @@ function σ(α::Real, x::Real)
     return x == 0. ? (1. -α)*α^(α/(1. -α)) : sin((1. - α)*pi*x) * sin(α*pi*x)^(α/(1. -α)) * sin(pi*x)^(-1. /(1. -α))
 end
 
-function Dσ(α::Real, x::Real)   
-    return x == 0. ? 0. : pi*σ(α,x)*(α^2 *cot(α*pi*x) + (1. -α)^2 * cot((1. -α)*pi*x) - cot(pi*x)) / (1. -α)
-end
-
 function D2σ(α::Real, x::Real)   
     return pi^2*σ(α,x)*((α^2 * cot(α*pi*x) + (1. -α)^2*cot((1. -α)*pi*x) - cot(pi*x))^2 / (1. -α)^2 + (- α^3*csc(α*pi*x)^2 - (1. -α)^3*csc((1. -α)*pi*x)^2 + csc(pi*x)^2) / (1. -α))
 end
@@ -521,6 +517,7 @@ function rand_tilt_exp_σ(α::Real, s::Real)
         C = σ0(α,z)^(r-1.) - C0
         c = Dlogσ0(α,.5) / σ0(α,.5)
         U = invσ(α, (rand() * C + C0)^(1. /(2. *α-1.)))
+        println(U)
         while rand() > c*σ0(α,U)*exp(-s*σ(α,U))/Dlogσ0(α,U)
             U = invσ(α, (rand() * C + C0)^(1. /(2. *α-1.)))
         end
@@ -839,29 +836,13 @@ function rand_crossing_tempered_stable(α::Real, θ::Real, q::Real, a0::Real, a1
     return (Tf, Uf, V)
 end
 
-function Λ(α::Real,ϑ::Real,q::Real,r::Real,r0::Real) 
-    return ϑ*q^α*(gamma(-α,q*r)-gamma(-α,q*r0))
-end
-
-function randΛ(α::Real,q::Real,r0::Real,r::Real)
-    #the jump size J has density proportional to 1{r0>x>r}e^(-qx)x^(-α-1)
-    #sample J via rejection sampling
-    # ℙ_0[J>x] = (x^(-α)-r0^(-α))/(r^(-α)-r0^(-α)) = U
-    J = ((r^(-α)-r0^(-α))*rand() + r0^(-α))^(-1/α)
-    while rand() > exp(-q*(J-r))
-        J = ((r^(-α)-r0^(-α))*rand() + r0^(-α))^(-1/α)
-    end
-    return J
-end
-
-function rand_crossing_subordinator(α::Real,ϑ::Real,q::Real,a0::Real,a1::Real,r::Real,ρ::Real,r0::Real,Λ0::Real,randΛ0::Function)
+function rand_crossing_subordinator(α::Real,ϑ::Real,q::Real,a0::Real,a1::Real,r::Real,ρ::Real,Λ::Real,randΛ::Function)
+    #Λ is the total mass of the compound Poisson component and randΛ is the function generating the jump size of it
     (t,u,v) = (0.,0.,0.)
     c = a0
-    Λr = Λ(α,ϑ,q,r,r0)
+    #Λr = Λ(α,ϑ,q,r,r0)
     θ = ϑ*gamma(1-α)/α
-    D0 = rand(Exponential())/Λ0 #D0 is the first jump time of Λ0
-    D = rand(Exponential())/Λr #D is the first jump time of Λ
-    (D,j) = D < D0 ? (D,1) : (D0,0)
+    D = rand(Exponential())/Λ #D is the first jump time of Λ0
     while c > 0.
         (t1,u1,v1) = rand_crossing_tempered_stable(α,θ,q,c,a1,r*ρ)
         while v1 > r
@@ -877,48 +858,10 @@ function rand_crossing_subordinator(α::Real,ϑ::Real,q::Real,a0::Real,a1::Real,
             w = rand_small_tempered_stable(α,θ,q,D,min(c-a1*D,r*ρ))
             t += D
             u = u+v+w
-            v = j == 1 ? randΛ(α,q,r0,r) : randΛ0(r)
+            v = randΛ()
             c = a0-v-u
-            D0 = rand(Exponential())/Λ0 #D0 is the first jump time of Λ0
-            D = rand(Exponential())/Λr #D is the first jump time of Λ
-            (D,j) = D < D0 ? (D,1) : (D0,0)
+            D = rand(Exponential())/Λ 
         end
     end
     return (t,u,v)
 end
-
-function NR_best_r(α::Real,ϑ::Real,q::Real,r0::Real,Λ0::Real,C1::Real,C2::Real)
-    if q == 0
-        return r0
-    end
-
-    tol = 1e-15
-    MAX_ITER = Int(1e4)
-    
-    function Λ(x) 
-        return Λ0+ϑ*q^α*(gamma(-α,q*x)-gamma(-α,q*r0))
-    end
-    function f(x) 
-        return q*x/2 - C1*ϑ*exp(-q*x)*x^(-α)/(1+C1*Λ(x)) + 1 - 1/(1+C2*x) - 1/(x+1)
-    end
-    function g(x) 
-        return q/2 + C1*ϑ*exp(-q*x)*x^(-α)*(q+α*x^(-1))/(1+C1*Λ(x)) -
-        C1^2*θ^2*exp(-2*q*x)*x^(-2*α-1)/(1+C1*Λ(x))^2 + C2/(1+C2*x)^2 + 1/(1+x)^2
-    end
-
-    r1 = min(r0,2*α/q)
-    r2 = min(abs(r1 - f(r1)/g(r1)),r0)
-
-    n = 0
-    while abs(r1-r2) > tol && n < MAX_ITER
-        n += 1 
-        r1 = r2
-        r2 = min(abs(r1 - f(r1)/g(r1)),r0)
-    end
-    
-    println("Convergence? ",abs(r1-r2), " number of iterations = ",n)
-    return n == MAX_ITER ? r0 : r2
-end
-
-
-
