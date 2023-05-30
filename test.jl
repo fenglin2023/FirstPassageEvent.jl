@@ -36,5 +36,9 @@ ECDF_T = ecdf(XT)
 ECDF_t = ecdf(FT)
 EFT(x) = ECDF_T(x)
 EFt(x) = ECDF_t(x)
-
 plot([EFT, EFt], 0.01, 5)
+
+# scaled difference between ECDFs
+BB(x) = sqrt(n/2)*(ECDF_T(x)-ECDF_t(x))
+xarr = 0:0.01:3
+plot(ECDF_t(xarr),BB(xarr),label= "scaled difference between ECDFs", ylim=(-1,1))
